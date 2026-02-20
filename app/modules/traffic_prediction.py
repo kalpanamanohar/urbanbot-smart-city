@@ -38,16 +38,9 @@ logger = get_logger()
 @st.cache_resource
 def load_traffic_components():
     try:
-        if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH):
-            st.error("Traffic model files not found.")
-            return None, None
-
         model = load_model(MODEL_PATH, compile=False)
         scaler = joblib.load(SCALER_PATH)
-
-        logger.info("Traffic model loaded successfully.")
         return model, scaler
-
     except Exception as e:
         logger.error(f"Traffic model loading failed: {e}")
         st.error("Traffic model failed to load.")
@@ -113,58 +106,41 @@ def run():
     if st.button("🔮 Predict Tomorrow Traffic"):
 
         try:
-            # ---------- DATASET CHECK ----------
+            # ---------- LOAD DATA ----------
             if not os.path.exists(DATA_PATH):
                 st.error("Traffic dataset not found.")
                 return
 
             df = pd.read_csv(DATA_PATH)
 
-            # ---------- COLUMN VALIDATION ----------
-            possible_volume_cols = [
-                "Traffic Volume",
-                "traffic_volume",
-                "Vehicle Count",
-                "vehicles"
-            ]
-
-            volume_col = None
-            for col in possible_volume_cols:
-                if col in df.columns:
-                    volume_col = col
-                    break
-
-            if "Date" not in df.columns or volume_col is None:
-                st.error("Dataset format incorrect. Required columns missing.")
+            if "Date" not in df.columns or "Traffic Volume" not in df.columns:
+                st.error("Dataset format incorrect.")
                 return
 
-            # ---------- PREPROCESS ----------
             df["Date"] = pd.to_datetime(df["Date"])
             df = df.sort_values(by="Date")
-            df = df[["Date", volume_col]]
+            df = df[["Date", "Traffic Volume"]]
 
-            df_daily = df.groupby("Date")[volume_col].mean().reset_index()
+            # Daily aggregation
+            df_daily = df.groupby("Date")["Traffic Volume"].mean().reset_index()
             df_daily.set_index("Date", inplace=True)
 
+            # Ensure enough history
             if len(df_daily) < 30:
                 st.error("Minimum 30 days of data required for prediction.")
                 return
 
-            today_traffic = int(df_daily.iloc[-1][volume_col])
+            # ---------- TODAY TRAFFIC ----------
+            today_traffic = int(df_daily.iloc[-1]["Traffic Volume"])
 
-            # ---------- SCALING ----------
-            scaled_data = scaler.transform(df_daily[[volume_col]])
+            # ---------- PREPARE LAST 30 DAYS ----------
+            scaled_data = scaler.transform(df_daily[["Traffic Volume"]])
             last_30 = scaled_data[-30:].reshape(1, 30, 1)
 
             # ---------- PREDICTION ----------
             prediction = model.predict(last_30, verbose=0)
-
-            if prediction.shape[-1] != 1:
-                st.error("Model output shape unexpected.")
-                return
-
-            predicted_traffic = scaler.inverse_transform(prediction)[0][0]
-            predicted_traffic = int(predicted_traffic)
+            prediction = scaler.inverse_transform(prediction)
+            predicted_traffic = int(prediction[0][0])
 
             # ---------- TREND ----------
             change = predicted_traffic - today_traffic
@@ -197,9 +173,8 @@ Congestion Level: {level}
 Time: {datetime.now()}
 
 Recommendation:
-• Avoid peak travel hours (8 AM – 11 AM)
-• Use alternate routes
-• Enable live navigation
+Avoid peak travel hours (8 AM – 11 AM)
+Use alternate routes.
 """
                 )
 
@@ -212,8 +187,6 @@ Recommendation:
                 "level": level,
                 "time": datetime.now()
             }
-
-            logger.info("Traffic prediction completed successfully.")
 
         except Exception as e:
             logger.error(f"Traffic prediction error: {e}")
