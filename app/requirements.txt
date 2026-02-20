@@ -1,0 +1,17 @@
+streamlit
+mysql-connector-python
+python-dotenv
+ultralytics
+tensorflow
+joblib
+pandas
+numpy
+matplotlib
+plotly
+folium
+streamlit-folium
+langchain
+openai
+faiss-cpu
+scikit-learn
+
