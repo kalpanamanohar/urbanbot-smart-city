@@ -1,7 +1,6 @@
 streamlit
 mysql-connector-python
 python-dotenv
-ultralytics
 tensorflow
 joblib
 pandas
@@ -11,7 +10,5 @@ plotly
 folium
 streamlit-folium
 langchain
-openai
-faiss-cpu
 scikit-learn
-
+ultralytics

@@ -1,4 +1,6 @@
 import streamlit as st
+from modules import dashboard
+from modules import analytics_dashboard
 from datetime import datetime
 
 # ---------------- MODULE IMPORTS ----------------
